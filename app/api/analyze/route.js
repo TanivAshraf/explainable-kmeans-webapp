@@ -7,13 +7,11 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 const NUM_CLUSTERS = 3;
 
-// Helper function to add a delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function getPersonaForCluster(clusterData) {
   if (clusterData.length === 0) return null;
 
-  // Calculate stats using JavaScript
   const stats = clusterData.reduce((acc, row) => {
     acc.age += row.age;
     acc.visits_per_month += row.visits_per_month;
@@ -41,7 +39,6 @@ async function getPersonaForCluster(clusterData) {
   return JSON.parse(jsonString);
 }
 
-
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -51,27 +48,28 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: "CSV data is required." }), { status: 400 });
     }
 
-    // --- Stage 1: Parse CSV and Perform K-Means in JavaScript ---
     const parsed = Papa.parse(csvData, { header: true, dynamicTyping: true });
-    const data = parsed.data.filter(row => row.customer_id != null); // Filter out empty rows
+    const data = parsed.data.filter(row => row.customer_id != null && Object.keys(row).length > 1);
 
-    // Prepare data for clustering (age, visits, spent)
+    if (data.length < NUM_CLUSTERS) {
+        return new Response(JSON.stringify({ error: "Not enough data to form clusters. Please provide more rows." }), { status: 400 });
+    }
+
     const vectors = data.map(row => [row.age, row.visits_per_month, row.total_spent]);
     
     const ans = kmeans(vectors, NUM_CLUSTERS, { initialization: 'kmeans++' });
     const assignments = ans.clusters;
 
-    // --- Stage 2: Group data and call LLM for explanation ---
     const clusters = Array.from({ length: NUM_CLUSTERS }, () => []);
     for (let i = 0; i < data.length; i++) {
-        clusters[assignments[i]].push(data[i]);
+        if(assignments[i] !== undefined) {
+            clusters[assignments[i]].push(data[i]);
+        }
     }
     
-    // Create promises for each cluster explanation
     const personaPromises = clusters.map(async (clusterData, index) => {
         if (clusterData.length > 0) {
-            // Add a delay between API calls to avoid rate limiting
-            await delay(index * 1000); 
+            await delay(index * 1500); // Stagger API calls to avoid rate limits
             const persona = await getPersonaForCluster(clusterData);
             persona.cluster_id = index;
             return persona;
