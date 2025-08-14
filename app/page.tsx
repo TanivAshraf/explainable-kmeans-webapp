@@ -43,7 +43,6 @@ export default function HomePage() {
     setPersonas([]);
 
     try {
-      // --- THE FIX: Make a single API call to our new, all-in-one backend ---
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,14 +51,11 @@ export default function HomePage() {
       
       const data = await response.json();
       if (!response.ok) {
-        // The new backend sends a clear error message
         throw new Error(data.error || "An unknown error occurred during analysis.");
       }
       
-      // Sort the results by cluster_id for consistent display
       data.sort((a: Persona, b: Persona) => a.cluster_id - b.cluster_id);
       setPersonas(data);
-      // --- END FIX ---
 
     } catch (err) {
       setError((err as Error).message);
