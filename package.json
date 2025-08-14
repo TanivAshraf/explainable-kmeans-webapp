@@ -9,17 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.11.3",
-    "ml-kmeans": "^6.0.0",
     "next": "latest",
-    "papaparse": "^5.4.1",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
-    "@types/papaparse": "^5.3.14",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "postcss": "latest",
