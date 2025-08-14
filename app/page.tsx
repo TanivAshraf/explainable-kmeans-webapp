@@ -24,19 +24,15 @@ const sampleCsvData = `customer_id,age,visits_per_month,total_spent
 19,68,2,95.50
 20,23,10,610.00`;
 
-// --- THE FIX: Define the "shape" of our persona data ---
 interface Persona {
   cluster_id: number;
   persona_name: string;
   description: string;
   marketing_strategy: string;
 }
-// --- END FIX ---
 
 export default function HomePage() {
   const [csvData, setCsvData] = useState(sampleCsvData);
-  
-  // --- THE FIX: Tell TypeScript what kind of data to expect ---
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,16 +43,33 @@ export default function HomePage() {
     setPersonas([]);
 
     try {
-      const response = await fetch("/api/analyze", {
+      // --- Step 1: Call the fast clustering API ---
+      const analyzeResponse = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csv_data: csvData }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "An unknown error occurred.");
+      const clustersToExplain = await analyzeResponse.json();
+      if (!analyzeResponse.ok) {
+        throw new Error(clustersToExplain.error || "Clustering failed.");
       }
-      setPersonas(data);
+
+      // --- Step 2: Call the slow explanation API for each cluster ---
+      const personaPromises = clustersToExplain.map((cluster: any) =>
+        fetch("/api/explain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cluster),
+        }).then(res => {
+            if (!res.ok) { throw new Error(`Explanation failed for cluster ${cluster.cluster_id}`); }
+            return res.json();
+        })
+      );
+      
+      const resolvedPersonas = await Promise.all(personaPromises);
+      resolvedPersonas.sort((a, b) => a.cluster_id - b.cluster_id); // Ensure order
+      setPersonas(resolvedPersonas);
+
     } catch (err) {
       setError((err as Error).message);
     } finally {
