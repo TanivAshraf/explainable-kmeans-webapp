@@ -10,22 +10,22 @@ except KeyError:
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        body = json.loads(post_data)
-        
-        stats = body.get('stats')
-        cluster_id = body.get('cluster_id')
-        num_customers = body.get('num_customers')
-
-        if not stats:
-            self.send_response(400)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'error': 'Cluster stats are required.'}).encode())
-            return
-
         try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            body = json.loads(post_data)
+            
+            stats = body.get('stats')
+            cluster_id = body.get('cluster_id')
+            num_customers = body.get('num_customers')
+
+            if not stats:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'Cluster stats are required.'}).encode())
+                return
+
             model = genai.GenerativeModel('gemini-1.5-flash-latest')
             prompt = f"""
             You are an expert data scientist and marketing analyst. A customer cluster has these average stats:
@@ -47,8 +47,10 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(persona).encode())
             
         except Exception as e:
+            # --- THE FIX: Ensure we always write a JSON error body ---
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(json.dumps({'error': str(e)}).encode())
+            self.wfile.write(json.dumps({'error': f"An error occurred in the explanation API: {str(e)}"}).encode())
+            # --- END FIX ---
         return
