@@ -9,27 +9,27 @@ NUM_CLUSTERS = 3
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        body = json.loads(post_data)
-        csv_data = body.get('csv_data')
-
-        if not csv_data:
-            self.send_response(400) # Bad Request
-            # ... (error handling) ...
-            return
-
         try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            body = json.loads(post_data)
+            csv_data = body.get('csv_data')
+
+            if not csv_data:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'CSV data is required.'}).encode())
+                return
+
             df = pd.read_csv(StringIO(csv_data))
             
-            # --- Perform Clustering ---
             df_features = df.drop('customer_id', axis=1)
             scaler = StandardScaler()
             scaled_features = scaler.fit_transform(df_features)
             kmeans = KMeans(n_clusters=NUM_CLUSTERS, random_state=42, n_init=10)
             df['cluster'] = kmeans.fit_predict(scaled_features)
             
-            # --- Prepare Results for Explanation ---
             results = []
             for i in range(NUM_CLUSTERS):
                 cluster_data = df[df['cluster'] == i]
@@ -47,6 +47,10 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(results).encode())
 
         except Exception as e:
+            # --- THE FIX: Ensure we always write a JSON error body ---
             self.send_response(500)
-            # ... (error handling) ...
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'error': f"An error occurred in the clustering API: {str(e)}"}).encode())
+            # --- END FIX ---
         return
