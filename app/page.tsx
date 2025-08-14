@@ -24,11 +24,22 @@ const sampleCsvData = `customer_id,age,visits_per_month,total_spent
 19,68,2,95.50
 20,23,10,610.00`;
 
+// --- THE FIX: Define the "shape" of our persona data ---
+interface Persona {
+  cluster_id: number;
+  persona_name: string;
+  description: string;
+  marketing_strategy: string;
+}
+// --- END FIX ---
+
 export default function HomePage() {
   const [csvData, setCsvData] = useState(sampleCsvData);
-  const [personas, setPersonas] = useState([]);
+  
+  // --- THE FIX: Tell TypeScript what kind of data to expect ---
+  const [personas, setPersonas] = useState<Persona[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     setIsLoading(true);
@@ -79,7 +90,7 @@ export default function HomePage() {
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-center mb-4">Generated Customer Personas</h2>
             <div className="grid md:grid-cols-3 gap-6">
-              {personas.map((p: any) => (
+              {personas.map((p: Persona) => (
                 <div key={p.cluster_id} className="p-4 bg-white rounded-lg shadow-md border">
                   <h3 className="text-xl font-bold text-blue-700">{p.persona_name}</h3>
                   <p className="text-sm font-medium text-gray-500">Cluster {p.cluster_id}</p>
