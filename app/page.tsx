@@ -31,16 +31,29 @@ interface Persona {
   marketing_strategy: string;
 }
 
+// --- THE FIX: A defensive function to render any value safely ---
+const renderSafe = (value: any) => {
+    if (typeof value === 'string') {
+        return value;
+    }
+    if (typeof value === 'object' && value !== null) {
+        return JSON.stringify(value); // Display unexpected objects as text
+    }
+    return 'N/A'; // Handle null or undefined
+};
+
 export default function HomePage() {
   const [csvData, setCsvData] = useState(sampleCsvData);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rawResponse, setRawResponse] = useState<any | null>(null);
 
   const handleAnalyze = async () => {
     setIsLoading(true);
     setError(null);
     setPersonas([]);
+    setRawResponse(null);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -50,10 +63,16 @@ export default function HomePage() {
       });
       
       const data = await response.json();
+      setRawResponse(data); // Always store the raw response for debugging
+
       if (!response.ok) {
         throw new Error(data.error || "An unknown error occurred during analysis.");
       }
       
+      if (!Array.isArray(data)) {
+        throw new Error("The API did not return a valid list of personas.");
+      }
+
       data.sort((a: Persona, b: Persona) => a.cluster_id - b.cluster_id);
       setPersonas(data);
 
@@ -84,19 +103,29 @@ export default function HomePage() {
           </button>
         </div>
 
-        {error && <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-md">{error}</div>}
+        {error && 
+            <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-md">
+                <p><strong>An error occurred:</strong> {error}</p>
+                {rawResponse && (
+                    <div className="mt-2">
+                        <h4 className="font-semibold">Raw Server Response:</h4>
+                        <pre className="text-xs bg-gray-200 p-2 rounded whitespace-pre-wrap">{JSON.stringify(rawResponse, null, 2)}</pre>
+                    </div>
+                )}
+            </div>
+        }
 
         {personas.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-center mb-4">Generated Customer Personas</h2>
             <div className="grid md:grid-cols-3 gap-6">
-              {personas.map((p: Persona) => (
+              {personas.map((p: any) => (
                 <div key={p.cluster_id} className="p-4 bg-white rounded-lg shadow-md border">
-                  <h3 className="text-xl font-bold text-blue-700">{p.persona_name}</h3>
-                  <p className="text-sm font-medium text-gray-500">Cluster {p.cluster_id}</p>
+                  <h3 className="text-xl font-bold text-blue-700">{renderSafe(p.persona_name)}</h3>
+                  <p className="text-sm font-medium text-gray-500">Cluster {p.cluster_id !== undefined ? p.cluster_id : 'N/A'}</p>
                   <div className="mt-4 space-y-3">
-                    <p><strong>Description:</strong> {p.description}</p>
-                    <p><strong>Marketing Strategy:</strong> {p.marketing_strategy}</p>
+                    <p><strong>Description:</strong> {renderSafe(p.description)}</p>
+                    <p><strong>Marketing Strategy:</strong> {renderSafe(p.marketing_strategy)}</p>
                   </div>
                 </div>
               ))}
