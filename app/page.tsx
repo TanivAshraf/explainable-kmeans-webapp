@@ -43,32 +43,23 @@ export default function HomePage() {
     setPersonas([]);
 
     try {
-      // --- Step 1: Call the fast clustering API ---
-      const analyzeResponse = await fetch("/api/analyze", {
+      // --- THE FIX: Make a single API call to our new, all-in-one backend ---
+      const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csv_data: csvData }),
       });
-      const clustersToExplain = await analyzeResponse.json();
-      if (!analyzeResponse.ok) {
-        throw new Error(clustersToExplain.error || "Clustering failed.");
-      }
-
-      // --- Step 2: Call the slow explanation API for each cluster ---
-      const personaPromises = clustersToExplain.map((cluster: any) =>
-        fetch("/api/explain", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(cluster),
-        }).then(res => {
-            if (!res.ok) { throw new Error(`Explanation failed for cluster ${cluster.cluster_id}`); }
-            return res.json();
-        })
-      );
       
-      const resolvedPersonas = await Promise.all(personaPromises);
-      resolvedPersonas.sort((a, b) => a.cluster_id - b.cluster_id); // Ensure order
-      setPersonas(resolvedPersonas);
+      const data = await response.json();
+      if (!response.ok) {
+        // The new backend sends a clear error message
+        throw new Error(data.error || "An unknown error occurred during analysis.");
+      }
+      
+      // Sort the results by cluster_id for consistent display
+      data.sort((a: Persona, b: Persona) => a.cluster_id - b.cluster_id);
+      setPersonas(data);
+      // --- END FIX ---
 
     } catch (err) {
       setError((err as Error).message);
